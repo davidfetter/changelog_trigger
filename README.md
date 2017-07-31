@@ -4,6 +4,18 @@ Knowing what happened at a logical level and, at least approximately, when, is s
 
 This project helps make having those things around simple and light-weight operation.
 
+## Installation
+
+If you're running any PostgreSQL version lower than 10, do:
+```shell
+psql -At1Xf logging_infra_pre_10.sql
+```
+
+Otherwise,
+```shell
+psql -At1Xf logging_infra.sql
+```
+
 ## Logging Table
 
 To safeguard against rowtype changes, the logging table blobs the old and new versions of a row each into a json blob.  This way, no maintenance needs to happen on ALTER TABLE.
