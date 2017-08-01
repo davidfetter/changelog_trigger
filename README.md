@@ -29,3 +29,13 @@ On CREATE TABLE, this trigger creates a log partition and one (or more, for Post
 For PostgreSQL < 10, one trigger gets created.  It fires after each row, and logs the appropriate change to the table's log table.
 
 For PostgreSQL >= 10, three triggers need to be created, firing after each *statement*.  There need to be three because they refer to transition tables, different combinations of which actually exist on INSERT, UPDATE, and DELETE.
+
+## Tables That Came Before
+
+If you need to attach logging to tables you created before installing this
+software, there's a way.  For example, if you want public.foo to have an
+activity log and it wasn't automatically added, you can add it by:
+
+```sql
+SELECT add_logging_items('public','foo');
+```
