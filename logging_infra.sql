@@ -60,6 +60,67 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION add_logging_items(schema_name TEXT, table_name TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RAISE NOTICE 'Adding log table(s) for %.%', schema_name, table_name;
+
+    EXECUTE format('CREATE TABLE IF NOT EXISTS %I
+    PARTITION OF the_log
+    FOR VALUES IN (%L)
+        PARTITION BY LIST(table_name)',
+        pg_catalog.concat_ws('_', schema_name, 'log'),
+        schema_name
+    );
+
+    EXECUTE format('CREATE TABLE IF NOT EXISTS %I
+    PARTITION OF %s
+    FOR VALUES IN (%L)',
+        pg_catalog.concat_ws('_', schema_name, table_name, 'log'),
+        pg_catalog.concat_ws('_', schema_name, 'log'),
+        table_name
+    );
+
+    EXECUTE format(
+            $q$CREATE TRIGGER %I
+    AFTER INSERT ON %I.%I
+    REFERENCING NEW TABLE AS new_table
+    FOR EACH STATEMENT
+        EXECUTE PROCEDURE public.log()$q$,
+            pg_catalog.concat_ws('_', 'log_insert', schema_name, table_name),
+            schema_name,
+            table_name
+    );
+
+    EXECUTE format(
+            $q$CREATE TRIGGER %I
+    AFTER UPDATE ON %I.%I
+    REFERENCING OLD TABLE AS old_table NEW TABLE AS new_table
+    FOR EACH STATEMENT
+        EXECUTE PROCEDURE public.log()$q$,
+            pg_catalog.concat_ws('_', 'log_update', schema_name, table_name),
+            schema_name,
+            table_name
+    );
+
+    EXECUTE format(
+            $q$CREATE TRIGGER %I
+    AFTER DELETE ON %I.%I
+    REFERENCING OLD TABLE AS old_table
+    FOR EACH STATEMENT
+        EXECUTE PROCEDURE public.log()$q$,
+            pg_catalog.concat_ws('_', 'log_delete', schema_name, table_name),
+            schema_name,
+            table_name
+    );
+RETURN;
+END;
+$$;
+
+COMMENT ON FUNCTION add_logging_items(schema_name TEXT, table_name TEXT) IS $$This is a stand-alone function in case we need to back-fill$$;
+
 CREATE OR REPLACE FUNCTION add_logger()
 RETURNS event_trigger
 LANGUAGE plpgsql
@@ -83,56 +144,7 @@ BEGIN
         RETURN;
     END IF;
 
-    RAISE NOTICE 'Adding log table(s) for %.%', r.schema_name, r.table_name;
-
-    EXECUTE format('CREATE TABLE IF NOT EXISTS %I
-    PARTITION OF the_log
-    FOR VALUES IN (%L)
-        PARTITION BY LIST(table_name);',
-        pg_catalog.concat_ws('_', r.schema_name, 'log'),
-        r.schema_name
-    );
-
-    EXECUTE format('CREATE TABLE IF NOT EXISTS %I
-    PARTITION OF %s
-    FOR VALUES IN (%L);',
-        pg_catalog.concat_ws('_', r.schema_name, r.table_name, 'log'),
-        pg_catalog.concat_ws('_', r.schema_name, 'log'),
-        r.table_name
-    );
-
-    EXECUTE format(
-            $q$CREATE TRIGGER %I
-    AFTER INSERT ON %I.%I
-    REFERENCING NEW TABLE AS new_table
-    FOR EACH STATEMENT
-        EXECUTE PROCEDURE public.log();$q$,
-            pg_catalog.concat_ws('_', 'log_insert', r.schema_name, r.table_name),
-            r.schema_name,
-            r.table_name
-    );
-
-    EXECUTE format(
-            $q$CREATE TRIGGER %I
-    AFTER UPDATE ON %I.%I
-    REFERENCING OLD TABLE AS old_table NEW TABLE AS new_table
-    FOR EACH STATEMENT
-        EXECUTE PROCEDURE public.log();$q$,
-            pg_catalog.concat_ws('_', 'log_update', r.schema_name, r.table_name),
-            r.schema_name,
-            r.table_name
-    );
-
-    EXECUTE format(
-            $q$CREATE TRIGGER %I
-    AFTER DELETE ON %I.%I
-    REFERENCING OLD TABLE AS old_table
-    FOR EACH STATEMENT
-        EXECUTE PROCEDURE public.log();$q$,
-            pg_catalog.concat_ws('_', 'log_delete', r.schema_name, r.table_name),
-            r.schema_name,
-            r.table_name
-    );
+    PERFORM add_logging_items(r.schema_name, r.table_name);
 
     EXCEPTION
         WHEN no_data_found THEN
