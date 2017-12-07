@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS the_log (
 
 CREATE OR REPLACE FUNCTION add_logging_items(schema_name TEXT, table_name TEXT)
 RETURNS VOID
+SECURITY DEFINER
 LANGUAGE plpgsql
 AS $$
 BEGIN
@@ -35,6 +36,7 @@ BEGIN
     EXECUTE format(
             $q$CREATE OR REPLACE FUNCTION %I()
 RETURNS TRIGGER
+SECURITY DEFINER
 LANGUAGE plpgsql
 AS $trig$
 BEGIN
@@ -75,6 +77,7 @@ COMMENT ON FUNCTION add_logging_items(schema_name TEXT, table_name TEXT) IS $$Th
 
 CREATE OR REPLACE FUNCTION add_logger()
 RETURNS event_trigger
+SECURITY DEFINER
 LANGUAGE plpgsql
 AS $$
 DECLARE

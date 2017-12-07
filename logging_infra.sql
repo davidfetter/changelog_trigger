@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS the_log (
 
 CREATE OR REPLACE FUNCTION log()
 RETURNS TRIGGER
+SECURITY DEFINER
 LANGUAGE plpgsql
 AS $$
 BEGIN
@@ -18,7 +19,8 @@ BEGIN
         RAISE EXCEPTION 'This function should not fire on %', TG_OP;
     END IF;
 
-    IF TG_OP = 'INSERT' THEN
+    CASE TG_OP 
+    WHEN 'INSERT' THEN
         INSERT INTO the_log (
             action,            table_schema,    table_name, new_row
         )
@@ -26,7 +28,7 @@ BEGIN
             TG_OP, TG_TABLE_SCHEMA, TG_RELNAME, row_to_json(new_table)::jsonb
         FROM
             new_table;
-    ELSIF TG_OP = 'DELETE' THEN
+    WHEN 'DELETE' THEN
         INSERT INTO the_log (
             action,            table_schema,    table_name, old_row
         )
@@ -34,7 +36,7 @@ BEGIN
             TG_OP, TG_TABLE_SCHEMA, TG_RELNAME, row_to_json(old_table)::jsonb
         FROM
             old_table;
-    ELSE
+    ELSE /* UPDATE */
         /*
          *  DANGER, WILL ROBINSON!  DANGER!
          *  This implementation assumes based on current implementation details
@@ -55,13 +57,14 @@ BEGIN
         JOIN
             n
             USING(ord);
-    END IF;
+    END CASE;
     RETURN NULL;
 END;
 $$;
 
 CREATE OR REPLACE FUNCTION add_logging_items(schema_name TEXT, table_name TEXT)
 RETURNS VOID
+SECURITY DEFINER
 LANGUAGE plpgsql
 AS $$
 BEGIN
@@ -123,6 +126,7 @@ COMMENT ON FUNCTION add_logging_items(schema_name TEXT, table_name TEXT) IS $$Th
 
 CREATE OR REPLACE FUNCTION add_logger()
 RETURNS event_trigger
+SECURITY DEFINER
 LANGUAGE plpgsql
 AS $$
 DECLARE
