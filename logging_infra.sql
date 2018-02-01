@@ -44,19 +44,16 @@ BEGIN
          *  implementation detail change, this will get a lot more complicated.
          */
 
-        WITH
-            o AS (SELECT row_to_json(old_table)::jsonb AS old_row, row_number() OVER () AS ord FROM old_table),
-            n AS (SELECT row_to_json(new_table)::jsonb AS new_row, row_number() OVER () AS ord FROM new_table)
         INSERT INTO the_log (
             action, table_schema,    table_name, old_row, new_row
         )
         SELECT
             TG_OP,  TG_TABLE_SCHEMA, TG_RELNAME, old_row, new_row
         FROM
-            o
-        JOIN
-            n
-            USING(ord);
+            UNNEST(
+                ARRAY(SELECT row_to_json(old_table)::jsonb FROM old_table),
+                ARRAY(SELECT row_to_json(new_table)::jsonb FROM new_table)
+            ) AS t(old_row, new_row)
     END CASE;
     RETURN NULL;
 END;
