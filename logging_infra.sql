@@ -53,7 +53,7 @@ BEGIN
             UNNEST(
                 ARRAY(SELECT row_to_json(old_table)::jsonb FROM old_table),
                 ARRAY(SELECT row_to_json(new_table)::jsonb FROM new_table)
-            ) AS t(old_row, new_row)
+            ) AS t(old_row, new_row);
     END CASE;
     RETURN NULL;
 END;
